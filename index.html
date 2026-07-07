@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>덴드리머 기반 약물 전달 시스템 시뮬레이터</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
+            background-color: #030712; /* Deepest slate black */
+            color: #f3f4f6;
+        }
+        /* Custom range slider styling */
+        input[type="range"]::-webkit-slider-thumb {
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden antialiased">
+
+    <!-- Header (Sleek Glassmorphic Design) -->
+    <header class="border-b border-slate-900 bg-slate-950/60 backdrop-blur-xl sticky top-0 z-50 px-6 py-4 transition-all">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/10 text-white">
+                    <i class="fa-solid fa-circle-nodes text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                        Dendrimer DDS <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Interactive Lab</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 font-medium">덴드리머 나노 구조 제어 및 약물 방출 평가 시스템</p>
+                </div>
+            </div>
+            
+            <!-- Minimal Navigation Tabs -->
+            <nav class="flex bg-slate-900/60 p-1 rounded-xl border border-slate-800/80">
+                <button onclick="switchTab('simulator')" id="btn-tab-simulator" class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all duration-300">
+                    실험 시뮬레이터
+                </button>
+                <button onclick="switchTab('theory')" id="btn-tab-theory" class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-sm transition-all duration-300">
+                    구조 및 원리 학습
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8">
+        
+        <!-- Tab 1: Simulator (Initially Hidden) -->
+        <div id="tab-simulator" class="tab-content hidden grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left Panel: Control Center & Parameters -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <!-- Parameters Card -->
+                <div class="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800/60 pb-4">
+                        <i class="fa-solid fa-sliders text-indigo-400 text-sm"></i>
+                        <h2 class="text-sm font-bold tracking-wider uppercase text-slate-300">실험 환경 설정</h2>
+                    </div>
+
+                    <!-- Param 1: Generation -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2.5">
+                            <label class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> 덴드리머 세대 설정
+                            </label>
+                            <!-- Prominent Generation Badge -->
+                            <span id="val-generation" class="text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 border border-indigo-400">G3 (3세대)</span>
+                        </div>
+                        <input type="range" id="input-generation" min="1" max="5" value="3" class="w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-indigo-500 transition-all">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-2 font-medium">
+                            <span>1세대 (저분기)</span>
+                            <span>3세대</span>
+                            <span>5세대 (고분기 구형)</span>
+                        </div>
+                    </div>
+
+                    <!-- Param 2: Drug Encapsulation Type -->
+                    <div class="mb-6">
+                        <label class="text-xs font-bold text-slate-400 flex items-center gap-2 mb-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 약물 결합/탑재 유형
+                        </label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setDrugType('internal')" id="btn-drug-internal" class="drug-type-btn py-3 px-3 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 flex flex-col items-center gap-1.5 transition-all">
+                                <i class="fa-solid fa-shield-halved text-sm"></i>
+                                <span>내부 포접</span>
+                            </button>
+                            <button onclick="setDrugType('surface')" id="btn-drug-surface" class="drug-type-btn py-3 px-3 rounded-xl text-xs font-bold border border-slate-800/80 bg-slate-950/40 text-slate-400 flex flex-col items-center gap-1.5 transition-all hover:border-slate-700">
+                                <i class="fa-solid fa-circle-nodes text-sm"></i>
+                                <span>표면 결합</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Param 3: Surface Charge -->
+                    <div class="mb-6">
+                        <label class="text-xs font-bold text-slate-400 flex items-center gap-2 mb-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> 표면 기능기 전하 종류
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setCharge('positive')" id="btn-charge-pos" class="charge-btn py-2 px-1 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/5 text-amber-400 transition-all">
+                                양전하 (+)
+                            </button>
+                            <button onclick="setCharge('neutral')" id="btn-charge-neu" class="charge-btn py-2 px-1 rounded-xl text-xs font-bold border border-slate-850 bg-slate-950/40 text-slate-400 transition-all hover:border-slate-700">
+                                중성 (PEG)
+                            </button>
+                            <button onclick="setCharge('negative')" id="btn-charge-neg" class="charge-btn py-2 px-1 rounded-xl text-xs font-bold border border-slate-850 bg-slate-950/40 text-slate-400 transition-all hover:border-slate-700">
+                                음전하 (-)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Param 4: Targeting Ligand -->
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-xs font-bold text-slate-400 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> 표적 특이적 리간드 개질
+                            </label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="input-ligand" class="sr-only peer" onchange="toggleLigand()">
+                                <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-400 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-rose-500"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Action Controls -->
+                    <div class="pt-4 border-t border-slate-800/60 flex gap-2">
+                        <button id="btn-play" onclick="togglePlay()" class="flex-1 py-3 px-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.98] rounded-xl font-bold text-xs text-white flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 transition-all">
+                            <i class="fa-solid fa-play" id="play-icon"></i> <span id="play-text">시뮬레이션 시작</span>
+                        </button>
+                        <button onclick="resetSimulation()" class="py-3 px-4 bg-slate-800/80 hover:bg-slate-700 rounded-xl font-bold text-xs text-slate-300 flex items-center justify-center transition-all" title="초기화">
+                            <i class="fa-solid fa-arrow-rotate-left"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sleek Specifications Card -->
+                <div class="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-chart-line text-emerald-400 text-sm"></i>
+                        <h2 class="text-sm font-bold tracking-wider uppercase text-slate-300">나노화학적 설계 스펙</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <!-- Stat Item 1 -->
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">평균 수력학적 직경</span>
+                            <span id="spec-size" class="font-bold text-indigo-400">~4.5 nm</span>
+                        </div>
+                        <!-- Stat Item 2 -->
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">표면 기능기 수</span>
+                            <span id="spec-branches" class="font-bold text-white">16 개</span>
+                        </div>
+                        <!-- Stat Item 3 -->
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1.5">
+                                <span class="text-slate-400">약물 적재 효율 용량</span>
+                                <span id="spec-capacity" class="font-bold text-emerald-400">보통 (16)</span>
+                            </div>
+                            <div class="w-full bg-slate-950 h-1 rounded-full overflow-hidden">
+                                <div id="bar-capacity" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 40%"></div>
+                            </div>
+                        </div>
+                        <!-- Stat Item 4 -->
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1.5">
+                                <span class="text-slate-400">잠재적 비특이 세포 독성</span>
+                                <span id="spec-toxicity" class="font-bold text-rose-400">매우 낮음</span>
+                            </div>
+                            <div class="w-full bg-slate-950 h-1 rounded-full overflow-hidden">
+                                <div id="bar-toxicity" class="bg-rose-500 h-full rounded-full transition-all duration-500" style="width: 15%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Visualizer & Metrics -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                <!-- Visualizer Canvas Container -->
+                <div class="bg-slate-900/20 border border-slate-800/50 rounded-2xl overflow-hidden shadow-xl flex flex-col relative">
+                    <!-- Status Bar Overlay (Minimal & Translucent) -->
+                    <div class="absolute top-4 left-4 z-10 flex flex-wrap gap-2">
+                        <!-- Neon Highlight Generation Badge on Canvas -->
+                        <span id="canvas-gen-badge" class="px-3.5 py-2 text-xs font-black bg-indigo-600 border border-indigo-400 rounded-full text-white flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+                            <i class="fa-solid fa-dna animate-spin" style="animation-duration: 4s;"></i>
+                            <span>현재 구조: G3 (3세대)</span>
+                        </span>
+                        
+                        <span class="px-3 py-1.5 text-[10px] font-bold bg-slate-950/60 backdrop-blur-md border border-slate-800 rounded-full text-slate-300 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                            3D 실시간 구조 모델
+                        </span>
+                        <span id="status-badge" class="px-3 py-1.5 text-[10px] font-bold bg-slate-950/60 backdrop-blur-md border border-slate-800 rounded-full text-amber-400 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            대기 중
+                        </span>
+                    </div>
+
+                    <!-- Canvas Frame -->
+                    <div class="w-full bg-slate-950/40 relative" style="height: 480px;">
+                        <canvas id="canvas-dendrimer" class="w-full h-full block"></canvas>
+                        
+                        <!-- Minimal Guide Legend overlay -->
+                        <div class="absolute bottom-4 left-4 right-4 bg-slate-950/80 backdrop-blur-lg border border-slate-900 rounded-xl p-3 flex flex-wrap justify-between items-center gap-3 text-[11px] text-slate-400">
+                            <div class="flex flex-wrap gap-4">
+                                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span>중심 코어</span>
+                                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-400"></span>내부 분지</span>
+                                <span class="flex items-center gap-1.5"><span id="legend-surface-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>말단기</span>
+                                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>탑재 약물</span>
+                                <span id="legend-ligand" class="hidden flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span>표적 리간드</span>
+                            </div>
+                            <div class="text-[10px] text-indigo-400 font-medium">
+                                드래그로 회전 | 마우스 휠로 확대/축소 가능
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sleek Performance Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div class="bg-slate-900/30 border border-slate-800/40 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                        <p class="text-xs font-bold text-slate-400 mb-2">종양 내 침투 효율성 (EPR)</p>
+                        <div>
+                            <h3 id="metric-epr" class="text-2xl font-extrabold text-indigo-400 tracking-tight">0%</h3>
+                            <p class="text-[10px] text-slate-500 mt-1">혈관 투과 수동 표적성</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/30 border border-slate-800/40 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                        <p class="text-xs font-bold text-slate-400 mb-2">세포막 돌파력 (Endocytosis)</p>
+                        <div>
+                            <h3 id="metric-penetration" class="text-2xl font-extrabold text-emerald-400 tracking-tight">0%</h3>
+                            <p class="text-[10px] text-slate-500 mt-1">세포막 유입 및 투과율</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/30 border border-slate-800/40 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                        <p class="text-xs font-bold text-slate-400 mb-2">종합 표적전달 적합성</p>
+                        <div>
+                            <h3 id="metric-score" class="text-2xl font-extrabold text-amber-400 tracking-tight">0점</h3>
+                            <p class="text-[10px] text-slate-500 mt-1">전체 치료 효능 스코어</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Chart Analysis -->
+                <div class="bg-slate-900/30 border border-slate-800/40 rounded-2xl p-6 shadow-xl">
+                    <div class="flex items-center justify-between mb-6 border-b border-slate-800/50 pb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-chart-area text-indigo-400 text-sm"></i>
+                            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">약물 전달 분석 프로파일</h2>
+                        </div>
+                    </div>
+                    <div class="w-full h-56">
+                        <canvas id="chart-simulation"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Tab 2: Theory & Principles (Initially Active) -->
+        <div id="tab-theory" class="tab-content space-y-8">
+            
+            <!-- Beautiful Landing Call-to-Action to Simulator -->
+            <div class="max-w-4xl mx-auto flex flex-col items-center text-center py-6 bg-gradient-to-b from-indigo-950/20 to-slate-950/10 border border-indigo-500/10 rounded-2xl p-6 shadow-2xl">
+                <span class="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 uppercase mb-3">Dendrimer DDS Lab</span>
+                <h3 class="text-lg md:text-xl font-bold text-white mb-2">나노 입자 설계 원리학습 가이드</h3>
+                <p class="text-xs text-slate-400 max-w-lg leading-relaxed mb-6">
+                    구조 원리와 작용 기전을 이해한 후, 실험 시뮬레이터 탭으로 이동하여 덴드리머 세대 및 표면 기능기를 직접 제어하는 활성도 시뮬레이션을 진행할 수 있습니다.
+                </p>
+                <button onclick="switchTab('simulator')" class="px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:scale-[0.98] text-white font-bold rounded-xl shadow-xl shadow-indigo-500/20 transition-all flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-flask text-sm group-hover:rotate-12 transition-transform"></i>
+                    <span class="text-xs">실험 시뮬레이터실 입장하기</span>
+                    <i class="fa-solid fa-arrow-right text-xs transition-transform group-hover:translate-x-1"></i>
+                </button>
+            </div>
+
+            <!-- Theory Introduction -->
+            <div class="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-8 shadow-xl max-w-4xl mx-auto">
+                <h2 class="text-xl font-extrabold text-white mb-4">덴드리머(Dendrimer) 분자 아키텍처</h2>
+                <p class="text-slate-300 leading-relaxed text-sm mb-6">
+                    나무(Dendron) 구조에서 유래한 덴드리머는 나노스케일의 구형 고분자 설계에서 가장 우아하고 고전적인 고유 지오메트리를 지니고 있습니다. 일반 선형 사슬 나노 운반체들과는 구별되는 완벽한 구형 대칭성과 제어가 가능한 단일 분산도(Monodispersity)가 특징입니다.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                    <div class="p-5 bg-slate-950/40 rounded-xl border border-slate-800/80">
+                        <h4 class="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wide">1. 제어 기점 코어 (Core)</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            나노 구조 성장의 구심점 역할을 수행하며, 세대 합성 단계를 정의합니다.
+                        </p>
+                    </div>
+                    <div class="p-5 bg-slate-950/40 rounded-xl border border-slate-800/80">
+                        <h4 class="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wide">2. 내부 나노 공동 (Internal Cavity)</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            수소 결합 또는 소수성 인력으로 친유성 항암 유효 성분을 가두고 생체 환경으로부터 보호합니다.
+                        </p>
+                    </div>
+                    <div class="p-5 bg-slate-950/40 rounded-xl border border-slate-800/80">
+                        <h4 class="text-xs font-bold text-amber-400 mb-2 uppercase tracking-wide">3. 다기능성 표면 말단기</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            단일 고분자에 수십 개 이상의 수용체 리간드와 형광체, PEG 분자를 고밀도 결합 가능한 자리를 제공합니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed In-Depth Mechanisms -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div class="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-6 shadow-xl">
+                    <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-up-down-left-right text-indigo-400"></i> 세대 분기와 입체 제어
+                    </h3>
+                    <ul class="space-y-3.5 text-xs text-slate-300 leading-relaxed">
+                        <li>
+                            <strong class="text-indigo-400">G1 - G2 (평면형 성상)</strong>: 대칭성이 낮고 가지 사이 밀도가 약하여 외부에 약물 노출률이 높아 보호 효과가 다소 반감됩니다.
+                        </li>
+                        <li>
+                            <strong class="text-emerald-400">G3 - G5 (치밀 구형 체적)</strong>: 특정 입체구조적 임계점에 도달해 단단하고 정밀한 구 모양을 형성합니다. 내부 공동 보호 효과와 약물 체류율이 절정에 달합니다.
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-6 shadow-xl">
+                    <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-flask-vial text-emerald-400"></i> 타겟팅의 능동성 및 수동성
+                    </h3>
+                    <ul class="space-y-3.5 text-xs text-slate-300 leading-relaxed">
+                        <li>
+                            <strong class="text-indigo-400">수동적 EPR 효과</strong>: 종양의 미세 모세혈관 누출 기전과 림프 배출 차단 현상으로 나노 수준 크기에서 자동 배출 방지 효과를 봅니다.
+                        </li>
+                        <li>
+                            <strong class="text-rose-400">능동적 수용체 이입</strong>: 암 표면 과발현 엽산 수용체(FR)를 타겟하여, 나노 입자가 표적 리간드와 단단히 융합 및 흡수 유도됩니다.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900/80 bg-slate-950 py-6 text-center text-[10px] text-slate-600">
+        <div class="max-w-7xl mx-auto px-6">
+            <p>© 2026 덴드리머 나노 인터랙티브 연구 실험 시뮬레이션실. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <!-- JS Logic -->
+    <script>
+        // --- State Management ---
+        const state = {
+            generation: 3,         
+            drugType: 'internal',  
+            surfaceCharge: 'neutral', 
+            hasLigand: false,
+            isPlaying: false,
+            animTime: 0,
+            drugMolecules: [],
+            rotX: 0.3,
+            rotY: 0.5,
+            scale: 1.0,
+            isDragging: false,
+            lastMouseX: 0,
+            lastMouseY: 0
+        };
+
+        // DOM elements
+        const canvas = document.getElementById('canvas-dendrimer');
+        const ctx = canvas.getContext('2d');
+        const inputGen = document.getElementById('input-generation');
+        const valGen = document.getElementById('val-generation');
+        const canvasGenBadge = document.getElementById('canvas-gen-badge');
+        const playIcon = document.getElementById('play-icon');
+        const playText = document.getElementById('play-text');
+        const statusBadge = document.getElementById('status-badge');
+
+        // Target Metrics
+        const mEpr = document.getElementById('metric-epr');
+        const mPenetration = document.getElementById('metric-penetration');
+        const mScore = document.getElementById('metric-score');
+
+        // Specs
+        const sSize = document.getElementById('spec-size');
+        const sBranches = document.getElementById('spec-branches');
+        const sCapacity = document.getElementById('spec-capacity');
+        const sToxicity = document.getElementById('spec-toxicity');
+        const bCapacity = document.getElementById('bar-capacity');
+        const bToxicity = document.getElementById('bar-toxicity');
+
+        let flowChart = null;
+
+        // --- Init ---
+        window.onload = function() {
+            setupCanvasSize();
+            initChart();
+            updateSpecs();
+            generateDrugs();
+            animate();
+
+            window.addEventListener('resize', () => {
+                setupCanvasSize();
+            });
+
+            // Handle Input (Enhanced with Double-indicator updates)
+            inputGen.addEventListener('input', (e) => {
+                state.generation = parseInt(e.target.value);
+                valGen.innerText = `G${state.generation} (${state.generation}세대)`;
+                
+                // Update 3D Canvas generation badge
+                if (canvasGenBadge) {
+                    canvasGenBadge.innerHTML = `<i class="fa-solid fa-dna animate-spin" style="animation-duration: 4s;"></i> <span>현재 구조: G${state.generation} (${state.generation}세대)</span>`;
+                }
+                
+                updateSpecs();
+                generateDrugs();
+                updateChartData();
+                if(state.isPlaying) resetSimulation();
+            });
+
+            // Drag Events
+            canvas.addEventListener('mousedown', (e) => {
+                state.isDragging = true;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+            });
+
+            window.addEventListener('mouseup', () => {
+                state.isDragging = false;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (state.isDragging) {
+                    const deltaX = e.clientX - state.lastMouseX;
+                    const deltaY = e.clientY - state.lastMouseY;
+                    state.rotY += deltaX * 0.007;
+                    state.rotX += deltaY * 0.007;
+                    state.lastMouseX = e.clientX;
+                    state.lastMouseY = e.clientY;
+                }
+            });
+
+            // Touch support for dragging
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    state.isDragging = true;
+                    state.lastMouseX = e.touches[0].clientX;
+                    state.lastMouseY = e.touches[0].clientY;
+                }
+            });
+
+            window.addEventListener('touchend', () => {
+                state.isDragging = false;
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (state.isDragging && e.touches.length === 1) {
+                    const deltaX = e.touches[0].clientX - state.lastMouseX;
+                    const deltaY = e.touches[0].clientY - state.lastMouseY;
+                    state.rotY += deltaX * 0.007;
+                    state.rotX += deltaY * 0.007;
+                    state.lastMouseX = e.touches[0].clientX;
+                    state.lastMouseY = e.touches[0].clientY;
+                }
+            });
+
+            // Wheel zoom
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                state.scale -= e.deltaY * 0.001;
+                state.scale = Math.max(0.6, Math.min(1.8, state.scale));
+            }, { passive: false });
+        };
+
+        function setupCanvasSize() {
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height || 480;
+        }
+
+        // --- Tab Control ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+                btn.classList.add('text-slate-400', 'hover:text-white');
+            });
+
+            const activeTab = document.getElementById(`tab-${tabId}`);
+            const activeBtn = document.getElementById(`btn-tab-${tabId}`);
+            if(activeTab && activeBtn) {
+                activeTab.classList.remove('hidden');
+                activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+                activeBtn.classList.remove('text-slate-400', 'hover:text-white');
+            }
+        }
+
+        // --- Configuration Handlers ---
+        function setDrugType(type) {
+            state.drugType = type;
+            document.querySelectorAll('.drug-type-btn').forEach(b => {
+                b.classList.remove('border-emerald-500/30', 'bg-emerald-500/5', 'text-emerald-400');
+                b.classList.add('border-slate-800/80', 'bg-slate-950/40', 'text-slate-400');
+            });
+            const selectedBtn = document.getElementById(`btn-drug-${type}`);
+            selectedBtn.classList.add('border-emerald-500/30', 'bg-emerald-500/5', 'text-emerald-400');
+            selectedBtn.classList.remove('border-slate-800/80', 'bg-slate-950/40', 'text-slate-400');
+            
+            generateDrugs();
+            updateSpecs();
+            updateChartData();
+            if(state.isPlaying) resetSimulation();
+        }
+
+        function setCharge(charge) {
+            state.surfaceCharge = charge;
+            document.querySelectorAll('.charge-btn').forEach(b => {
+                b.classList.remove('border-amber-500/30', 'bg-amber-500/5', 'text-amber-400', 'border-emerald-500/30', 'bg-emerald-500/5', 'text-emerald-400', 'border-rose-500/30', 'bg-rose-500/5', 'text-rose-400');
+                b.classList.add('border-slate-800/80', 'bg-slate-950/40', 'text-slate-400');
+            });
+            const btn = document.getElementById(`btn-charge-${charge === 'positive' ? 'pos' : charge === 'neutral' ? 'neu' : 'neg'}`);
+            btn.classList.remove('border-slate-800/80', 'bg-slate-950/40', 'text-slate-400');
+            
+            const legendDot = document.getElementById('legend-surface-dot');
+            if (charge === 'positive') {
+                btn.classList.add('border-amber-500/30', 'bg-amber-500/5', 'text-amber-400');
+                legendDot.className = "w-2 h-2 rounded-full bg-amber-500 inline-block";
+            } else if (charge === 'neutral') {
+                btn.classList.add('border-emerald-500/30', 'bg-emerald-500/5', 'text-emerald-400');
+                legendDot.className = "w-2 h-2 rounded-full bg-emerald-400 inline-block";
+            } else {
+                btn.classList.add('border-rose-500/30', 'bg-rose-500/5', 'text-rose-400');
+                legendDot.className = "w-2 h-2 rounded-full bg-rose-500 inline-block";
+            }
+
+            updateSpecs();
+            updateChartData();
+            if(state.isPlaying) resetSimulation();
+        }
+
+        function toggleLigand() {
+            state.hasLigand = document.getElementById('input-ligand').checked;
+            const leg = document.getElementById('legend-ligand');
+            if(state.hasLigand) leg.classList.remove('hidden');
+            else leg.classList.add('hidden');
+            updateSpecs();
+            updateChartData();
+            if(state.isPlaying) resetSimulation();
+        }
+
+        // --- Core Spec & Performance Math ---
+        function calculateStats() {
+            const sizeMap = [0, 1.5, 2.5, 4.5, 7.2, 10.5];
+            const size = sizeMap[state.generation];
+            const branches = Math.pow(2, state.generation + 1);
+            
+            let capacityVal = 0;
+            if(state.drugType === 'internal') {
+                capacityVal = Math.max(5, (state.generation - 1) * 12);
+            } else {
+                capacityVal = branches * 0.8; 
+            }
+
+            let toxicityVal = 10;
+            if (state.surfaceCharge === 'positive') {
+                toxicityVal = state.generation * 18 + 10; 
+            } else if (state.surfaceCharge === 'neutral') {
+                toxicityVal = 5 + state.generation * 1.5; 
+            } else {
+                toxicityVal = 12 + state.generation * 3;
+            }
+
+            let epr = 0;
+            if(size < 2.0) epr = 20;
+            else if(size < 4.0) epr = 65;
+            else if(size <= 8.0) epr = 92;
+            else epr = 75; 
+
+            if(state.surfaceCharge === 'neutral') epr += 8; 
+
+            let endo = 0;
+            if (state.hasLigand) {
+                endo = 95; 
+            } else {
+                if (state.surfaceCharge === 'positive') endo = 72;
+                else if (state.surfaceCharge === 'negative') endo = 40;
+                else endo = 25; 
+            }
+
+            let score = Math.round((epr * 0.45) + (endo * 0.55));
+            if (toxicityVal > 60) score = Math.max(10, score - (toxicityVal - 60) * 0.5);
+
+            return {
+                size,
+                branches,
+                capacity: Math.round(capacityVal),
+                toxicity: Math.round(toxicityVal),
+                epr: Math.round(epr),
+                endo: Math.round(endo),
+                score: Math.round(score)
+            };
+        }
+
+        function updateSpecs() {
+            const stats = calculateStats();
+            sSize.innerText = `~${stats.size} nm`;
+            sBranches.innerText = `${stats.branches} 개`;
+            sCapacity.innerText = `${stats.capacity} 분자`;
+            bCapacity.style.width = `${Math.min(100, (stats.capacity/50)*100)}%`;
+
+            if(stats.toxicity < 20) {
+                sToxicity.innerText = "안전함";
+                sToxicity.className = "font-bold text-emerald-400";
+                bToxicity.className = "bg-emerald-500 h-full rounded-full transition-all duration-500";
+            } else if (stats.toxicity < 50) {
+                sToxicity.innerText = "안전 범주";
+                sToxicity.className = "font-bold text-amber-400";
+                bToxicity.className = "bg-amber-500 h-full rounded-full transition-all duration-500";
+            } else {
+                sToxicity.innerText = "세포막 자극";
+                sToxicity.className = "font-bold text-rose-500";
+                bToxicity.className = "bg-rose-500 h-full rounded-full transition-all duration-500";
+            }
+            bToxicity.style.width = `${stats.toxicity}%`;
+
+            mEpr.innerText = `${stats.epr}%`;
+            mPenetration.innerText = `${stats.endo}%`;
+            mScore.innerText = `${stats.score}점`;
+        }
+
+        // --- Drug Particle Initialization ---
+        function generateDrugs() {
+            state.drugMolecules = [];
+            const stats = calculateStats();
+            const count = stats.capacity;
+
+            for(let i=0; i<count; i++) {
+                if(state.drugType === 'internal') {
+                    const r = (Math.random() * 0.4 + 0.15) * 120 * (state.generation / 3);
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+                    state.drugMolecules.push({
+                        origR: r,
+                        theta: theta,
+                        phi: phi,
+                        x: r * Math.sin(phi) * Math.cos(theta),
+                        y: r * Math.sin(phi) * Math.sin(theta),
+                        z: r * Math.cos(phi),
+                        escaped: false,
+                        escapeX: 0,
+                        escapeY: 0,
+                        escapeZ: 0,
+                        escapeSpeed: Math.random() * 2 + 1.5,
+                        escapeDir: { x: Math.sin(phi)*Math.cos(theta), y: Math.sin(phi)*Math.sin(theta), z: Math.cos(phi) }
+                    });
+                } else {
+                    const r = 130 * (state.generation / 3) + 10;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+                    state.drugMolecules.push({
+                        origR: r,
+                        theta: theta,
+                        phi: phi,
+                        x: r * Math.sin(phi) * Math.cos(theta),
+                        y: r * Math.sin(phi) * Math.sin(theta),
+                        z: r * Math.cos(phi),
+                        escaped: false,
+                        escapeX: 0,
+                        escapeY: 0,
+                        escapeZ: 0,
+                        escapeSpeed: Math.random() * 3 + 2,
+                        escapeDir: { x: Math.sin(phi)*Math.cos(theta), y: Math.sin(phi)*Math.sin(theta), z: Math.cos(phi) }
+                    });
+                }
+            }
+        }
+
+        // 3D Tree Renderer - Parametric Signature Cleaned up
+        function drawDendrimerTree(x, y, z, theta, phi, curGen, maxGen, rotX, rotY) {
+            if (curGen > maxGen) return;
+
+            const rx1 = x;
+            const ry1 = y * Math.cos(rotX) - z * Math.sin(rotX);
+            const rz1 = y * Math.sin(rotX) + z * Math.cos(rotX);
+
+            const rx2 = rx1 * Math.cos(rotY) + rz1 * Math.sin(rotY);
+            const ry2 = ry1;
+            const rz2 = -rx1 * Math.sin(rotY) + rz1 * Math.cos(rotY);
+
+            const cx = canvas.width / 2 + rx2 * state.scale;
+            const cy = canvas.height / 2 + ry2 * state.scale;
+            const nodeSize = Math.max(1, (3 - curGen * 0.4) * (1 + rz2 * 0.002) * state.scale);
+
+            let terminalColor = '#f59e0b'; 
+            if (state.surfaceCharge === 'neutral') terminalColor = '#10b981'; 
+            if (state.surfaceCharge === 'negative') terminalColor = '#f43f5e'; 
+
+            const coreColor = '#3b82f6';
+            const branchColor = '#818cf8';
+
+            ctx.beginPath();
+            if (curGen === 0) {
+                ctx.arc(cx, cy, 6 * state.scale, 0, Math.PI * 2);
+                ctx.fillStyle = coreColor;
+                ctx.shadowColor = coreColor;
+                ctx.shadowBlur = 8;
+            } else if (curGen === maxGen) {
+                ctx.arc(cx, cy, 4.5 * state.scale, 0, Math.PI * 2);
+                ctx.fillStyle = terminalColor;
+                ctx.shadowColor = terminalColor;
+                ctx.shadowBlur = 4;
+            } else {
+                ctx.arc(cx, cy, nodeSize, 0, Math.PI * 2);
+                ctx.fillStyle = branchColor;
+                ctx.shadowBlur = 0;
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+
+            if (curGen === maxGen && state.hasLigand && curGen % 2 === 0) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, 8 * state.scale, 0, Math.PI * 2);
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 1.2 * state.scale;
+                ctx.stroke();
+            }
+
+            const numBranches = curGen === 0 ? 4 : 2; 
+            const len = 42 * (1.2 / (curGen + 1)) * (state.generation / 3);
+
+            for (let i = 0; i < numBranches; i++) {
+                let nextTheta, nextPhi;
+                if (curGen === 0) {
+                    nextTheta = (Math.PI / 2) * i;
+                    nextPhi = Math.PI / 4 + (i % 2) * (Math.PI / 2);
+                } else {
+                    nextTheta = theta + (i === 0 ? 0.45 : -0.45);
+                    nextPhi = phi + (i === 0 ? 0.45 : -0.45);
+                }
+
+                const nx = x + len * Math.sin(nextPhi) * Math.cos(nextTheta);
+                const ny = y + len * Math.sin(nextPhi) * Math.sin(nextTheta);
+                const nz = z + len * Math.cos(nextPhi);
+
+                const nrx1 = nx;
+                const nry1 = ny * Math.cos(rotX) - nz * Math.sin(rotX);
+                const nrz1 = ny * Math.sin(rotX) + nz * Math.cos(rotX);
+
+                const nrx2 = nrx1 * Math.cos(rotY) + nrz1 * Math.sin(rotY);
+                const nry2 = nry1;
+
+                const ncx = canvas.width / 2 + nrx2 * state.scale;
+                const ncy = canvas.height / 2 + nry2 * state.scale;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(ncx, ncy);
+                ctx.strokeStyle = 'rgba(129, 140, 248, 0.45)';
+                ctx.lineWidth = Math.max(0.5, (3 - curGen * 0.6) * state.scale);
+                ctx.stroke();
+
+                // Recursion parameters properly matched
+                drawDendrimerTree(nx, ny, nz, nextTheta, nextPhi, curGen + 1, maxGen, rotX, rotY);
+            }
+        }
+
+        // Draw drugs being released
+        function drawDrugs(rotX, rotY) {
+            state.drugMolecules.forEach((d) => {
+                let dx = d.x;
+                let dy = d.y;
+                let dz = d.z;
+
+                if (d.escaped) {
+                    const offset = state.animTime * d.escapeSpeed;
+                    dx += d.escapeDir.x * offset;
+                    dy += d.escapeDir.y * offset;
+                    dz += d.escapeDir.z * offset;
+                }
+
+                const rx1 = dx;
+                const ry1 = dy * Math.cos(rotX) - dz * Math.sin(rotX);
+                const rz1 = dy * Math.sin(rotX) + dz * Math.cos(rotX);
+
+                const rx2 = rx1 * Math.cos(rotY) + rz1 * Math.sin(rotY);
+                const ry2 = ry1;
+
+                const cx = canvas.width / 2 + rx2 * state.scale;
+                const cy = canvas.height / 2 + ry2 * state.scale;
+
+                let alpha = 1.0;
+                if(d.escaped) {
+                    alpha = Math.max(0, 1 - (state.animTime / 120));
+                }
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3 * state.scale, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(52, 211, 153, ${alpha})`;
+                ctx.shadowColor = '#34d399';
+                ctx.shadowBlur = d.escaped ? 2 : 4;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+        }
+
+        // Target cellular landscape representation
+        function drawBackground() {
+            ctx.beginPath();
+            ctx.arc(canvas.width - 60, canvas.height / 2, 90, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.2)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([5, 10]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.04)';
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText('표적 활성화 암 조직', canvas.width - 150, canvas.height / 2 + 110);
+        }
+
+        // --- Core Animation loop ---
+        function animate() {
+            ctx.fillStyle = '#060a16'; // Sophisticated dark canvas clear
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!state.isDragging) {
+                state.rotY += 0.003;
+                state.rotX += 0.001;
+            }
+
+            drawBackground();
+            // Call tree matching 9 parameters: (x, y, z, theta, phi, curGen, maxGen, rotX, rotY)
+            drawDendrimerTree(0, 0, 0, 0, 0, 0, state.generation, state.rotX, state.rotY);
+
+            if (state.isPlaying) {
+                state.animTime += 1;
+                
+                let releaseRate = 0.015; 
+                if(state.drugType === 'surface') {
+                    releaseRate = 0.04; 
+                }
+
+                state.drugMolecules.forEach((d) => {
+                    if(!d.escaped && Math.random() < releaseRate) {
+                        d.escaped = true;
+                    }
+                });
+
+                if (state.animTime > 120) {
+                    state.isPlaying = false;
+                    playIcon.className = "fa-solid fa-play";
+                    playText.innerText = "시뮬레이션 시작";
+                    statusBadge.innerText = "평가 완료";
+                    statusBadge.className = "px-3 py-1.5 text-[10px] font-bold bg-slate-950/60 backdrop-blur border border-slate-800 rounded-full text-emerald-400 flex items-center gap-1.5";
+                }
+            }
+
+            drawDrugs(state.rotX, state.rotY);
+            requestAnimationFrame(animate);
+        }
+
+        // --- Controls Playback ---
+        function togglePlay() {
+            if (state.isPlaying) {
+                state.isPlaying = false;
+                playIcon.className = "fa-solid fa-play";
+                playText.innerText = "시뮬레이션 시작";
+                statusBadge.innerText = "일시 정지";
+                statusBadge.className = "px-3 py-1.5 text-[10px] font-bold bg-slate-950/60 backdrop-blur border border-slate-800 rounded-full text-amber-500 flex items-center gap-1.5";
+            } else {
+                state.isPlaying = true;
+                playIcon.className = "fa-solid fa-pause";
+                playText.innerText = "일시 정지";
+                statusBadge.innerText = "약물 방출 진행 중";
+                statusBadge.className = "px-3 py-1.5 text-[10px] font-bold bg-slate-950/60 backdrop-blur border border-slate-800 rounded-full text-indigo-400 flex items-center gap-1.5";
+            }
+        }
+
+        function resetSimulation() {
+            state.isPlaying = false;
+            state.animTime = 0;
+            playIcon.className = "fa-solid fa-play";
+            playText.innerText = "시뮬레이션 시작";
+            statusBadge.innerText = "대기 중";
+            statusBadge.className = "px-3 py-1.5 text-[10px] font-bold bg-slate-950/60 backdrop-blur border border-slate-800 rounded-full text-amber-400 flex items-center gap-1.5";
+            generateDrugs();
+        }
+
+        // --- Chart Visualization ---
+        function initChart() {
+            const chartCtx = document.getElementById('chart-simulation').getContext('2d');
+            const dataPoints = getSimulatedTimeData();
+
+            flowChart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: ['0s', '2s', '4s', '6s', '8s', '10s', '12s', '14s', '16s', '18s', '20s'],
+                    datasets: [{
+                        label: '표적 암세포 약물 전달 축적도 (%)',
+                        borderColor: '#6366f1',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 3,
+                        tension: 0.4,
+                        data: dataPoints,
+                        fill: true,
+                        backgroundColor: 'rgba(99, 102, 241, 0.04)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(71, 85, 105, 0.1)' },
+                            ticks: { color: '#64748b', font: { size: 10 } },
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function getSimulatedTimeData() {
+            const stats = calculateStats();
+            const peakVal = stats.score;
+            let timeProfile = [0];
+            
+            for(let i=1; i<=10; i++) {
+                const fraction = Math.sin((i / 10) * (Math.PI / 2));
+                const val = peakVal * fraction * (0.85 + Math.random() * 0.1);
+                timeProfile.push(Math.round(Math.min(100, val)));
+            }
+            return timeProfile;
+        }
+
+        function updateChartData() {
+            if(flowChart) {
+                flowChart.data.datasets[0].data = getSimulatedTimeData();
+                flowChart.update('active');
+            }
+        }
+    </script>
+</body>
+</html>
