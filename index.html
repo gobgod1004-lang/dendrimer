@@ -483,7 +483,7 @@
 
         function setupCanvasSize() {
             const rect = canvas.parentNode.getBoundingClientRect();
-            canvas.width = rect.width;
+            canvas.width = rect.width || 600;
             canvas.height = rect.height || 480;
         }
 
@@ -499,8 +499,31 @@
             const activeBtn = document.getElementById(`btn-tab-${tabId}`);
             if(activeTab && activeBtn) {
                 activeTab.classList.remove('hidden');
-                activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
-                activeBtn.classList.remove('text-slate-400', 'hover:text-white');
+                
+                // Active style
+                if (tabId === 'theory') {
+                    activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+                    activeBtn.classList.remove('text-slate-400', 'hover:text-white');
+                    
+                    const sib = document.getElementById('btn-tab-simulator');
+                    sib.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+                    sib.classList.add('text-slate-400', 'hover:text-white');
+                } else {
+                    activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+                    activeBtn.classList.remove('text-slate-400', 'hover:text-white');
+                    
+                    const sib = document.getElementById('btn-tab-theory');
+                    sib.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+                    sib.classList.add('text-slate-400', 'hover:text-white');
+                }
+                
+                // CRITICAL FIX: If switching to simulator, recalculate canvas size because container was hidden!
+                if (tabId === 'simulator') {
+                    setTimeout(() => {
+                        setupCanvasSize();
+                        generateDrugs();
+                    }, 50);
+                }
             }
         }
 
